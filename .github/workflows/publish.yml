@@ -2,20 +2,20 @@ name: autopublish
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # запуск каждые 2 часа UTC
-  workflow_dispatch:        # возможность запустить вручную
+    - cron: '0 */2 * * *'   # Запуск каждые 2 часа UTC
+  workflow_dispatch:        # Возможность запустить вручную
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout репозитория с PAT_TOKEN ────────────────────────────────
+      # ── 1. Checkout репозитория, используя PAT_TOKEN ─────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN }}   # <— здесь именно PAT_TOKEN, а не GITHUB_TOKEN
-          fetch-depth: 0                    # клонируем всю историю
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0
 
       # ── 2. Устанавливаем Python 3.11 ────────────────────────────────────────
       - name: Set up Python
@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # ── 3. Устанавливаем зависимости из requirements.txt ───────────────────
+      # ── 3. Устанавливаем зависимости ───────────────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -39,7 +39,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/contentforge.py
 
-      # ── 6. Commit & Push новых статей, используя PAT в URL ───────────────────
+      # ── 6. Commit & Push новых статей, используя PAT_TOKEN в URL ─────────────
       - name: Commit & Push generated posts
         env:
           PAT: ${{ secrets.PAT_TOKEN }}
@@ -47,23 +47,23 @@ jobs:
           git config user.name 'auto-bot'
           git config user.email 'bot@example.com'
 
-          # Если ваша основная ветка называется "master", замените main→master
+          # Имя основной ветки (замените main→master, если нужна master)
           BRANCH=main
 
-          # Переключаемся на основную ветку и подтягиваем последние изменения
+          # Переключаемся на ветку и подтягиваем последние изменения
           git checkout $BRANCH
           git pull origin $BRANCH
 
-          # Добавляем сгенерированные Markdown/.png
+          # Добавляем сгенерированные файлы
           git add website/content/posts
 
-          # Если есть staged-изменения, создаём коммит
+          # Если есть staged-изменения — создаём коммит
           git diff --cached --quiet || git commit -m "auto: new posts $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
-          # Пушим, подставляя PAT прямо в URL (в логах PAT будет скрыт звёздочками)
+          # Пушим изменения, указывая PAT прямо в URL (в логах будет скрыто: x-access-token:***)
           git push https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git $BRANCH
 
-      # ── 7. (Опционально) Уведомляем Cloudflare Worker о новых статьях ───────
+      # ── 7. (Опционально) Уведомляем Cloudflare Worker о новых статьях ────────
       - name: Notify Cloudflare Worker
         run: |
           for file in website/content/posts/*.md; do
