@@ -1,32 +1,77 @@
 name: autopublish
+
 on:
   schedule:
-    - cron: '0 */2 * * *'   # запуск раз в 2 ч UTC
-  workflow_dispatch:
+    - cron: '0 */2 * * *'   # запуск каждые 2 часа UTC
+  workflow_dispatch:        # возможность запустить вручную
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # ── 1. Checkout репозитория с PAT_TOKEN ─────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Подставляем Personal Access Token вместо стандартного GITHUB_TOKEN
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0     # чтобы можно было пушить во всё дерево (не только последний коммит)
+
+      # ── 2. Set up Python 3.11 ────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install deps
-        run: pip install -r requirements.txt
+      # ── 3. Install dependencies ─────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run TrendScout
+      # ── 4. Run TrendScout (collect ideas) ────────────────────────────────────
+      - name: Run TrendScout (collect ideas)
         run: python scripts/trendscout.py
 
-      - name: Run ContentForge
+      # ── 5. Run ContentForge (generate posts) ────────────────────────────────
+      - name: Run ContentForge (generate posts)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/contentforge.py
 
-      - name: Commit & Push
+      # ── 6. Commit & Push generated posts (через PAT_TOKEN) ───────────────────
+      - name: Commit & Push generated posts
         run: |
           git config user.name 'auto-bot'
           git config user.email 'bot@example.com'
+
+          # Определяем основную ветку. Если у вас мастер называется 'master', замените main→master
+          BRANCH=main
+
+          # Переключаемся на нужную ветку
+          git checkout $BRANCH
+
+          # Достаём последние изменения, актуальные в удалённом репо
+          git pull origin $BRANCH
+
+          # Добавляем сгенерированные markdown- и png-файлы
           git add website/content/posts
-          git diff --cached --quiet || git commit -m "auto: new posts"
-          git push
+
+          # Если есть staged-изменения, создаём коммит
+          git diff --cached --quiet || git commit -m "auto: new posts $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          # Пушим коммит обратно в репозиторий, используя PAT_TOKEN, уже настроенный при чекауте
+          git push origin $BRANCH
+
+      # ── 7. (Опционально) Notify Cloudflare Worker ────────────────────────────
+      - name: Notify Cloudflare Worker
+        run: |
+          for file in website/content/posts/*.md; do
+            title=$(grep '^title:' "$file" | head -1 | cut -d '"' -f2)
+            slug=$(basename "$file" .md)
+            url="https://Pollo8.github.io/auto-publisher/${slug}"
+            curl -X POST https://<ВАШ_WORKER_URL> \
+                 -H "Content-Type: application/json" \
+                 -d "{\"title\":\"$title\",\"url\":\"$url\"}"
+          done
