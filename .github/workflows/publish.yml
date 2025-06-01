@@ -68,7 +68,7 @@ jobs:
           # Пушим, подставляя PAT вместо x-access-token:*** (лог покажет ***)
           git push "https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git" $BRANCH
 
-      # ── 8. (Опционально) Уведомляем Cloudflare Worker → Zapier ──────────────
+      # ── 8. Уведомляем Cloudflare Worker → Zapier ──────────────────────────────
       - name: Notify Cloudflare Worker
         run: |
           for file in website/content/posts/*.md; do
