@@ -1,0 +1,32 @@
+name: autopublish
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # запуск раз в 2 ч UTC
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run TrendScout
+        run: python scripts/trendscout.py
+
+      - name: Run ContentForge
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python scripts/contentforge.py
+
+      - name: Commit & Push
+        run: |
+          git config user.name 'auto-bot'
+          git config user.email 'bot@example.com'
+          git add website/content/posts
+          git diff --cached --quiet || git commit -m "auto: new posts"
+          git push
