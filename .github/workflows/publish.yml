@@ -2,15 +2,15 @@ name: autopublish
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # Запуск каждые 2 часа UTC
-  workflow_dispatch:        # Возможность запустить вручную
+    - cron: '0 */2 * * *'   # запуск каждые 2 часа UTC
+  workflow_dispatch:        # позволяем запускать workflow вручную
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout репозитория, используя PAT_TOKEN ─────────────────────────
+      # ── 1. Чекаутим репозиторий, подставляя PAT_TOKEN для аутентификации ──
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -39,7 +39,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/contentforge.py
 
-      # ── 6. Commit & Push новых статей, используя PAT_TOKEN в URL ─────────────
+      # ── 6. Commit & Push новых статей, используя PAT в URL ──────────────────
       - name: Commit & Push generated posts
         env:
           PAT: ${{ secrets.PAT_TOKEN }}
@@ -47,23 +47,23 @@ jobs:
           git config user.name 'auto-bot'
           git config user.email 'bot@example.com'
 
-          # Имя основной ветки (замените main→master, если нужна master)
-          BRANCH=main
+          # Имя основной ветки (если у вас master, замените main→master):
+          BRANCH="main"
 
-          # Переключаемся на ветку и подтягиваем последние изменения
+          # Переключаемся на основную ветку и подтягиваем изменения:
           git checkout $BRANCH
           git pull origin $BRANCH
 
-          # Добавляем сгенерированные файлы
+          # Добавляем сгенерированные файлы:
           git add website/content/posts
 
-          # Если есть staged-изменения — создаём коммит
+          # Если есть staged-изменения, создаём коммит:
           git diff --cached --quiet || git commit -m "auto: new posts $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
-          # Пушим изменения, указывая PAT прямо в URL (в логах будет скрыто: x-access-token:***)
-          git push https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git $BRANCH
+          # Пушим: PAT подставится вместо x-access-token:***, лог покажет лишь ***
+          git push "https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git" $BRANCH
 
-      # ── 7. (Опционально) Уведомляем Cloudflare Worker о новых статьях ────────
+      # ── 7. (Опционально) Уведомляем Cloudflare Worker ───────────────────────
       - name: Notify Cloudflare Worker
         run: |
           for file in website/content/posts/*.md; do
