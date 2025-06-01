@@ -2,44 +2,49 @@ name: autopublish
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # запуск каждые 2 часа UTC
-  workflow_dispatch:        # позволяем запускать workflow вручную
+    - cron: '0 */2 * * *'   # Запуск каждые 2 часа UTC
+  workflow_dispatch:        # Возможность запустить вручную
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Чекаутим репозиторий, подставляя PAT_TOKEN для аутентификации ──
+      # ── 1. Проверяем, что PAT_TOKEN существует (выводим его в лог, но он скрыт) ──
+      - name: Debug PAT existence
+        run: |
+          echo "PAT_TOKEN is: ${{ secrets.PAT_TOKEN }}"
+      
+      # ── 2. Чекаутим репозиторий, используя PAT_TOKEN для аутентификации ────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
-      # ── 2. Устанавливаем Python 3.11 ────────────────────────────────────────
+      # ── 3. Устанавливаем Python 3.11 ────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # ── 3. Устанавливаем зависимости ───────────────────────────────────────
+      # ── 4. Ставим зависимости ───────────────────────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 4. Собираем идеи через TrendScout ───────────────────────────────────
+      # ── 5. Собираем идеи ────────────────────────────────────────────────────
       - name: Run TrendScout (collect ideas)
         run: python scripts/trendscout.py
 
-      # ── 5. Генерируем контент через ContentForge ─────────────────────────────
+      # ── 6. Генерируем контент ───────────────────────────────────────────────
       - name: Run ContentForge (generate posts)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/contentforge.py
 
-      # ── 6. Commit & Push новых статей, используя PAT в URL ──────────────────
+      # ── 7. Коммитим и пушим новые статьи, передавая PAT прямо в URL ─────────
       - name: Commit & Push generated posts
         env:
           PAT: ${{ secrets.PAT_TOKEN }}
@@ -47,23 +52,23 @@ jobs:
           git config user.name 'auto-bot'
           git config user.email 'bot@example.com'
 
-          # Имя основной ветки (если у вас master, замените main→master):
+          # Имя вашей основной ветки (если master, замените main→master ниже)
           BRANCH="main"
 
-          # Переключаемся на основную ветку и подтягиваем изменения:
+          # Переключаемся на ветку и подтягиваем изменения
           git checkout $BRANCH
           git pull origin $BRANCH
 
-          # Добавляем сгенерированные файлы:
+          # Добавляем сгенерированные файлы
           git add website/content/posts
 
-          # Если есть staged-изменения, создаём коммит:
+          # Если есть staged-изменения, делаем коммит
           git diff --cached --quiet || git commit -m "auto: new posts $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
-          # Пушим: PAT подставится вместо x-access-token:***, лог покажет лишь ***
+          # Пушим, подставляя PAT вместо x-access-token:*** (лог покажет ***)
           git push "https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git" $BRANCH
 
-      # ── 7. (Опционально) Уведомляем Cloudflare Worker ───────────────────────
+      # ── 8. (Опционально) Уведомляем Cloudflare Worker → Zapier ──────────────
       - name: Notify Cloudflare Worker
         run: |
           for file in website/content/posts/*.md; do
