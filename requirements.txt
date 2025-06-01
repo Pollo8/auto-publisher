@@ -1,0 +1,6 @@
+﻿pytrends
+huggingface_hub
+jinja2
+markdown
+pillow
+python-slugify
