@@ -14,7 +14,7 @@ jobs:
       - name: Debug PAT existence
         run: |
           echo "PAT_TOKEN is: ${{ secrets.PAT_TOKEN }}"
-      
+
       # ── 2. Чекаутим репозиторий, используя PAT_TOKEN для аутентификации ────
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,17 +28,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      # ── 4. Ставим зависимости ───────────────────────────────────────────────
+      # ── 4. Устанавливаем зависимости ───────────────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 5. Собираем идеи ────────────────────────────────────────────────────
+      # ── 5. Собираем идеи через TrendScout ───────────────────────────────────
       - name: Run TrendScout (collect ideas)
         run: python scripts/trendscout.py
 
-      # ── 6. Генерируем контент ───────────────────────────────────────────────
+      # ── 6. Генерируем контент через ContentForge ─────────────────────────────
       - name: Run ContentForge (generate posts)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -75,7 +75,7 @@ jobs:
             title=$(grep '^title:' "$file" | head -1 | cut -d '"' -f2)
             slug=$(basename "$file" .md)
             url="https://Pollo8.github.io/auto-publisher/${slug}"
-            curl -X POST https://<ВАШ_WORKER_URL> \
+            curl -X POST "https://auto-pub-zapier.udalov27.workers.dev" \
                  -H "Content-Type: application/json" \
                  -d "{\"title\":\"$title\",\"url\":\"$url\"}"
           done
