@@ -2,20 +2,20 @@ name: autopublish
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # запуск каждые 2 часа UTC
-  workflow_dispatch:        # возможность запустить вручную
+    - cron: '0 */2 * * *'   # Запуск каждые 2 часа UTC
+  workflow_dispatch:        # Возможность вручную запустить
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Чекаут репозитория, используя PAT_TOKEN ──────────────────────────
+      # ── 1. Checkout репозитория с PAT_TOKEN ────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
-          fetch-depth: 0     # клонируем всю историю, чтобы git push точно работал
+          fetch-depth: 0
 
       # ── 2. Устанавливаем Python 3.11 ────────────────────────────────────────
       - name: Set up Python
@@ -39,7 +39,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/contentforge.py
 
-      # ── 6. Коммитим и пушим новые статьи, используя PAT в URL ───────────────
+      # ── 6. Commit & Push, используя PAT в URL ───────────────────────────────
       - name: Commit & Push generated posts
         env:
           PAT: ${{ secrets.PAT_TOKEN }}
@@ -47,23 +47,19 @@ jobs:
           git config user.name 'auto-bot'
           git config user.email 'bot@example.com'
 
-          # Ваша основная ветка (замените на master, если у вас master)
+          # Если у вас основная ветка называется ‘master’, замените main → master
           BRANCH=main
 
-          # Переключаемся на основную ветку и подтягиваем последние изменения
           git checkout $BRANCH
           git pull origin $BRANCH
 
-          # Добавляем папку с новыми .md/.png
           git add website/content/posts
-
-          # Если есть staged-изменения, коммитим
           git diff --cached --quiet || git commit -m "auto: new posts $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
-          # Пушим, указывая PAT прямо в URL. Лог GitHub Actions подставит вместо PAT «***».
+          # Именно в этой строке PAT должен подставиться:  
           git push https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git $BRANCH
 
-      # ── 7. (Опционально) Уведомляем Cloudflare Worker ───────────────────────
+      # ── 7. (Опционально) Уведомляем Cloudflare Worker ────────────────────────
       - name: Notify Cloudflare Worker
         run: |
           for file in website/content/posts/*.md; do
