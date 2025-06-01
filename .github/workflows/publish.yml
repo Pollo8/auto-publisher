@@ -10,61 +10,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout репозитория с PAT_TOKEN ─────────────────────────────────
+      # ── 1. Чекаут репозитория, используя PAT_TOKEN ──────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Подставляем Personal Access Token вместо стандартного GITHUB_TOKEN
           token: ${{ secrets.PAT_TOKEN }}
-          fetch-depth: 0     # чтобы можно было пушить во всё дерево (не только последний коммит)
+          fetch-depth: 0     # клонируем всю историю, чтобы git push точно работал
 
-      # ── 2. Set up Python 3.11 ────────────────────────────────────────────────
+      # ── 2. Устанавливаем Python 3.11 ────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # ── 3. Install dependencies ─────────────────────────────────────────────
+      # ── 3. Устанавливаем зависимости ───────────────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 4. Run TrendScout (collect ideas) ────────────────────────────────────
+      # ── 4. Собираем идеи ────────────────────────────────────────────────────
       - name: Run TrendScout (collect ideas)
         run: python scripts/trendscout.py
 
-      # ── 5. Run ContentForge (generate posts) ────────────────────────────────
+      # ── 5. Генерируем контент ───────────────────────────────────────────────
       - name: Run ContentForge (generate posts)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/contentforge.py
 
-      # ── 6. Commit & Push generated posts (через PAT_TOKEN) ───────────────────
+      # ── 6. Коммитим и пушим новые статьи, используя PAT в URL ───────────────
       - name: Commit & Push generated posts
+        env:
+          PAT: ${{ secrets.PAT_TOKEN }}
         run: |
           git config user.name 'auto-bot'
           git config user.email 'bot@example.com'
 
-          # Определяем основную ветку. Если у вас мастер называется 'master', замените main→master
+          # Ваша основная ветка (замените на master, если у вас master)
           BRANCH=main
 
-          # Переключаемся на нужную ветку
+          # Переключаемся на основную ветку и подтягиваем последние изменения
           git checkout $BRANCH
-
-          # Достаём последние изменения, актуальные в удалённом репо
           git pull origin $BRANCH
 
-          # Добавляем сгенерированные markdown- и png-файлы
+          # Добавляем папку с новыми .md/.png
           git add website/content/posts
 
-          # Если есть staged-изменения, создаём коммит
+          # Если есть staged-изменения, коммитим
           git diff --cached --quiet || git commit -m "auto: new posts $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
-          # Пушим коммит обратно в репозиторий, используя PAT_TOKEN, уже настроенный при чекауте
-          git push origin $BRANCH
+          # Пушим, указывая PAT прямо в URL. Лог GitHub Actions подставит вместо PAT «***».
+          git push https://x-access-token:${PAT}@github.com/Pollo8/auto-publisher.git $BRANCH
 
-      # ── 7. (Опционально) Notify Cloudflare Worker ────────────────────────────
+      # ── 7. (Опционально) Уведомляем Cloudflare Worker ───────────────────────
       - name: Notify Cloudflare Worker
         run: |
           for file in website/content/posts/*.md; do
